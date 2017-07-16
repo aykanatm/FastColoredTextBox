@@ -6,8 +6,8 @@ namespace FastColoredTextBoxNS
     public class CommandManager
     {
         readonly int maxHistoryLength = 200;
-        LimitedStack<UndoableCommand> history;
-        Stack<UndoableCommand> redoStack = new Stack<UndoableCommand>();
+        public LimitedStack<UndoableCommand> History;
+        public Stack<UndoableCommand> RedoStack = new Stack<UndoableCommand>();
         public TextSource TextSource{ get; private set; }
         public bool UndoRedoStackIsEnabled { get; set; }
 
@@ -15,7 +15,7 @@ namespace FastColoredTextBoxNS
 
         public CommandManager(TextSource ts)
         {
-            history = new LimitedStack<UndoableCommand>(maxHistoryLength);
+            History = new LimitedStack<UndoableCommand>(maxHistoryLength);
             TextSource = ts;
             UndoRedoStackIsEnabled = true;
         }
@@ -36,7 +36,7 @@ namespace FastColoredTextBoxNS
             {
                 //if range is ColumnRange, then create wrapper
                 (cmd as UndoableCommand).autoUndo = autoUndoCommands > 0;
-                history.Push(cmd as UndoableCommand);
+                History.Push(cmd as UndoableCommand);
             }
 
             try
@@ -47,22 +47,22 @@ namespace FastColoredTextBoxNS
             {
                 //OnTextChanging cancels enter of the text
                 if (cmd is UndoableCommand)
-                    history.Pop();
+                    History.Pop();
             }
             //
             if (!UndoRedoStackIsEnabled)
                 ClearHistory();
             //
-            redoStack.Clear();
+            RedoStack.Clear();
             //
             TextSource.CurrentTB.OnUndoRedoStateChanged();
         }
 
         public void Undo()
         {
-            if (history.Count > 0)
+            if (History.Count > 0)
             {
-                var cmd = history.Pop();
+                var cmd = History.Pop();
                 //
                 BeginDisableCommands();//prevent text changing into handlers
                 try
@@ -74,13 +74,13 @@ namespace FastColoredTextBoxNS
                     EndDisableCommands();
                 }
                 //
-                redoStack.Push(cmd);
+                RedoStack.Push(cmd);
             }
 
             //undo next autoUndo command
-            if (history.Count > 0)
+            if (History.Count > 0)
             {
-                if (history.Peek().autoUndo)
+                if (History.Peek().autoUndo)
                     Undo();
             }
 
@@ -105,8 +105,8 @@ namespace FastColoredTextBoxNS
         {
             autoUndoCommands--;
             if (autoUndoCommands == 0)
-                if (history.Count > 0)
-                    history.Peek().autoUndo = false;
+                if (History.Count > 0)
+                    History.Peek().autoUndo = false;
         }
 
         public void BeginAutoUndoCommands()
@@ -116,26 +116,26 @@ namespace FastColoredTextBoxNS
 
         internal void ClearHistory()
         {
-            history.Clear();
-            redoStack.Clear();
+            History.Clear();
+            RedoStack.Clear();
             TextSource.CurrentTB.OnUndoRedoStateChanged();
         }
 
         internal void Redo()
         {
-            if (redoStack.Count == 0)
+            if (RedoStack.Count == 0)
                 return;
             UndoableCommand cmd;
             BeginDisableCommands();//prevent text changing into handlers
             try
             {
-                cmd = redoStack.Pop();
+                cmd = RedoStack.Pop();
                 if (TextSource.CurrentTB.Selection.ColumnSelectionMode)
                     TextSource.CurrentTB.Selection.ColumnSelectionMode = false;
                 TextSource.CurrentTB.Selection.Start = cmd.sel.Start;
                 TextSource.CurrentTB.Selection.End = cmd.sel.End;
                 cmd.Execute();
-                history.Push(cmd);
+                History.Push(cmd);
             }
             finally
             {
@@ -156,7 +156,7 @@ namespace FastColoredTextBoxNS
         { 
             get
             {
-                return history.Count > 0;
+                return History.Count > 0;
             }
         }
 
@@ -164,7 +164,7 @@ namespace FastColoredTextBoxNS
         {
             get
             {
-                return redoStack.Count > 0;
+                return RedoStack.Count > 0;
             }
         }
     }
