@@ -7,6 +7,11 @@ namespace FastColoredTextBoxNS
 {
     public partial class ReplaceForm : Form
     {
+        string currentPattern;
+        string previousPattern;
+        bool patternFound = false;
+        bool newPatternEntered = false;
+
         FastColoredTextBox tb;
         bool firstSearch = true;
         Place startPlace;
@@ -24,15 +29,18 @@ namespace FastColoredTextBoxNS
 
         private void btFindNext_Click(object sender, EventArgs e)
         {
-            try
+            currentPattern = tbFind.Text;
+            if (currentPattern != previousPattern)
             {
-                if (!Find(tbFind.Text))
-                    MessageBox.Show("Not found");
+                newPatternEntered = true;
+                previousPattern = currentPattern;
             }
-            catch (Exception ex)
+            else
             {
-                MessageBox.Show(ex.Message);
+                newPatternEntered = false;
             }
+
+            Find(currentPattern);
         }
 
         public List<Range> FindAll(string pattern)
@@ -51,44 +59,83 @@ namespace FastColoredTextBoxNS
 
             return list;
         }
-
-        public bool Find(string pattern)
+        
+        public virtual void Find(string pattern)
         {
-            RegexOptions opt = cbMatchCase.Checked ? RegexOptions.None : RegexOptions.IgnoreCase;
-            if (!cbRegex.Checked)
-                pattern = Regex.Escape(pattern);
-            if (cbWholeWord.Checked)
-                pattern = "\\b" + pattern + "\\b";
-            //
-            Range range = tb.Selection.Clone();
-            range.Normalize();
-            //
-            if (firstSearch)
+            try
             {
-                startPlace = range.Start;
-                firstSearch = false;
+                RegexOptions opt = cbMatchCase.Checked ? RegexOptions.None : RegexOptions.IgnoreCase;
+                if (!cbRegex.Checked)
+                    pattern = Regex.Escape(pattern);
+                if (cbWholeWord.Checked)
+                    pattern = "\\b" + pattern + "\\b";
+                //
+                Range range = tb.Selection.Clone();
+                range.Normalize();
+                //
+                if (firstSearch)
+                {
+                    startPlace = range.Start;
+                    firstSearch = false;
+                }
+                //
+                range.Start = range.End;
+                if (range.Start >= startPlace)
+                    range.End = new Place(tb.GetLineLength(tb.LinesCount - 1), tb.LinesCount - 1);
+                else
+                    range.End = startPlace;
+                //
+
+                IEnumerable<Range> foundPatterns = range.GetRangesByLines(pattern, opt);
+                if (CountRanges(foundPatterns) > 0)
+                {
+                    patternFound = true;
+
+                    foreach (var r in foundPatterns)
+                    {
+                        tb.Selection = r;
+                        tb.DoSelectionVisible();
+                        tb.Invalidate();
+                        return;
+                    }
+                }
+                else
+                {
+                    patternFound = false;
+                }
+
+                //
+                if (range.Start >= startPlace && startPlace > Place.Empty)
+                {
+                    tb.Selection.Start = new Place(0, 0);
+                    Find(pattern);
+                    return;
+                }
+
+                if (!patternFound && newPatternEntered)
+                {
+                    MessageBox.Show("The search phrase " + pattern + " is not found in the document.");
+                }
+                else
+                {
+                    startPlace = range.Start;
+                }
             }
-            //
-            range.Start = range.End;
-            if (range.Start >= startPlace)
-                range.End = new Place(tb.GetLineLength(tb.LinesCount - 1), tb.LinesCount - 1);
-            else
-                range.End = startPlace;
-            //
-            foreach (var r in range.GetRangesByLines(pattern, opt))
+            catch (Exception ex)
             {
-                tb.Selection.Start = r.Start;
-                tb.Selection.End = r.End;
-                tb.DoSelectionVisible();
-                tb.Invalidate();
-                return true;
+                MessageBox.Show(ex.Message);
             }
-            if (range.Start >= startPlace && startPlace > Place.Empty)
+        }
+
+        private int CountRanges(IEnumerable<Range> input)
+        {
+            int result = 0;
+            using (IEnumerator<Range> enumerator = input.GetEnumerator())
             {
-                tb.Selection.Start = new Place(0, 0);
-                return Find(pattern);
+                while (enumerator.MoveNext())
+                    result++;
             }
-            return false;
+            return result;
         }
 
         private void tbFind_KeyPress(object sender, KeyPressEventArgs e)
