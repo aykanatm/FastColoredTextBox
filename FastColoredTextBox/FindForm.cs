@@ -7,6 +7,11 @@ namespace FastColoredTextBoxNS
 {
     public partial class FindForm : Form
     {
+        string currentPattern;
+        string previousPattern;
+        bool patternFound = false;
+        bool newPatternEntered = false;
+
         bool firstSearch = true;
         Place startPlace;
         FastColoredTextBox tb;
@@ -24,7 +29,18 @@ namespace FastColoredTextBoxNS
 
         private void btFindNext_Click(object sender, EventArgs e)
         {
-            FindNext(tbFind.Text);
+            currentPattern = tbFind.Text;
+            if (currentPattern != previousPattern)
+            {
+                newPatternEntered = true;
+                previousPattern = currentPattern;
+            }
+            else
+            {
+                newPatternEntered = false;
+            }
+
+            FindNext(currentPattern);
         }
 
         public virtual void FindNext(string pattern)
@@ -52,13 +68,25 @@ namespace FastColoredTextBoxNS
                 else
                     range.End = startPlace;
                 //
-                foreach (var r in range.GetRangesByLines(pattern, opt))
+
+                IEnumerable<Range> foundPatterns = range.GetRangesByLines(pattern, opt);
+                if (CountRanges(foundPatterns) > 0)
                 {
-                    tb.Selection = r;
-                    tb.DoSelectionVisible();
-                    tb.Invalidate();
-                    return;
+                    patternFound = true;
+
+                    foreach (var r in foundPatterns)
+                    {
+                        tb.Selection = r;
+                        tb.DoSelectionVisible();
+                        tb.Invalidate();
+                        return;
+                    }
                 }
+                else
+                {
+                    patternFound = false;
+                }
+                
                 //
                 if (range.Start >= startPlace && startPlace > Place.Empty)
                 {
@@ -66,12 +94,31 @@ namespace FastColoredTextBoxNS
                     FindNext(pattern);
                     return;
                 }
-                MessageBox.Show("Not found");
+
+                if (!patternFound && newPatternEntered)
+                {
+                    MessageBox.Show("The search phrase " + pattern + " is not found in the document.");
+                }
+                else
+                {
+                    startPlace = range.Start;
+                }
             }
             catch (Exception ex)
             {
                 MessageBox.Show(ex.Message);
             }
+        }
+
+        private int CountRanges(IEnumerable<Range> input)
+        {
+            int result = 0;
+            using (IEnumerator<Range> enumerator = input.GetEnumerator())
+            {
+                while (enumerator.MoveNext())
+                    result++;
+            }
+            return result;
         }
 
         private void tbFind_KeyPress(object sender, KeyPressEventArgs e)
