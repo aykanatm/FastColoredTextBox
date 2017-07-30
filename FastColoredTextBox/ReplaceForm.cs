@@ -114,7 +114,7 @@ namespace FastColoredTextBoxNS
 
                 if (!patternFound && newPatternEntered)
                 {
-                    MessageBox.Show("The search phrase " + pattern + " is not found in the document.");
+                    MessageBox.Show("The search phrase '" + pattern + "' is not found in the document.");
                 }
                 else
                 {
